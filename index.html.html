@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S.G.I. - Maternidade Lucrécia Paim</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: { extend: { colors: { brand: { 50: '#f0f7ff', 500: '#0077b6', 600: '#023e8a', 800: '#03045e', 900: '#001233' } } } }
+        }
+    </script>
+    <style>
+        /* Variáveis Dinâmicas */
+        :root { 
+            --sidebar-bg: #001233; 
+            --sidebar-hover: rgba(255,255,255,0.1); 
+            --primary-color: #0077b6; 
+        }
+        .theme-sidebar { background-color: var(--sidebar-bg) !important; transition: background 0.3s; }
+        .theme-sidebar-hover:hover { background-color: var(--sidebar-hover) !important; }
+        .theme-text { color: var(--sidebar-bg) !important; }
+        
+        .glass-panel { background: rgba(255, 255, 255, 0.98); border: 1px solid #e2e8f0; }
+        .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 3px; }
+        
+        .fade-in { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        #loadingOverlay { position: fixed; inset: 0; background: rgba(255,255,255,0.95); z-index: 9999; display: flex; justify-content: center; align-items: center; flex-direction: column; }
+        #loginScreen { position: fixed; inset: 0; background-color: #0f172a; z-index: 10000; display: flex; justify-content: center; align-items: center; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans h-screen flex overflow-hidden">
+
+    <div id="loginScreen">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md text-center border-t-8 border-blue-900 relative overflow-hidden">
+            <div class="absolute top-0 right-0 p-2 opacity-10"><i class="fas fa-hospital text-9xl"></i></div>
+            <div class="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg p-2 border border-slate-100 relative z-10">
+                <img id="loginLogo" src="logo_maternidade.png" class="w-full h-full object-contain" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3063/3063176.png';">
+            </div>
+            <h2 class="text-2xl font-bold text-slate-800 mb-1">Maternidade Lucrécia Paim</h2>
+            <p class="text-xs text-slate-500 mb-8 uppercase font-bold tracking-widest border-b pb-2 inline-block">SGI - DEITI</p>
+            
+            <form onsubmit="handleLogin(event)" class="space-y-4 text-left relative z-10">
+                <div>
+                    <label class="text-xs font-bold text-slate-500 uppercase ml-1">Credencial</label>
+                    <div class="relative">
+                        <i class="fas fa-envelope absolute left-3 top-3.5 text-slate-400"></i>
+                        <input type="email" id="loginEmail" class="w-full border pl-10 p-3 rounded-lg bg-slate-50 focus:ring-2 ring-blue-500 outline-none transition" placeholder="email@maternidade.ao" required>
+                    </div>
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-slate-500 uppercase ml-1">Palavra-passe</label>
+                    <div class="relative">
+                        <i class="fas fa-lock absolute left-3 top-3.5 text-slate-400"></i>
+                        <input type="password" id="loginPass" class="w-full border pl-10 p-3 rounded-lg bg-slate-50 focus:ring-2 ring-blue-500 outline-none transition" placeholder="••••••••" required>
+                    </div>
+                </div>
+                <button type="submit" id="btnLogin" class="w-full bg-blue-900 text-white py-3 rounded-lg font-bold hover:bg-blue-800 transition-all shadow-lg transform active:scale-95">ACEDER AO SISTEMA</button>
+            </form>
+            <p id="loginError" class="text-red-500 text-xs mt-4 font-bold hidden bg-red-50 p-2 rounded border border-red-100"><i class="fas fa-exclamation-circle"></i> Dados incorretos</p>
+            <p class="text-xs text-slate-400 mt-6">Contacte o Administrador para obter acesso.</p>
+        </div>
+    </div>
+
+    <div id="loadingOverlay">
+        <div class="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-900 mb-4"></div>
+        <p class="font-bold text-slate-700 animate-pulse">A carregar sistema...</p>
+    </div>
+
+    <aside class="w-72 theme-sidebar text-white flex flex-col shadow-2xl z-20 transition-all duration-300">
+        <div class="p-6 border-b border-white/10 flex flex-col items-center text-center relative">
+            <div class="w-20 h-20 bg-white rounded-full flex items-center justify-center mb-3 shadow-lg overflow-hidden p-1 border-2 border-white/20">
+                <img id="appLogo" src="logo_maternidade.png" class="w-full h-full object-contain" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3063/3063176.png';">
+            </div>
+            <h1 class="text-sm font-bold leading-tight uppercase tracking-wider text-slate-100">Maternidade<br>Lucrécia Paim</h1>
+            <div class="mt-2 px-2 py-0.5 bg-white/10 rounded text-[9px] text-slate-300 font-medium">DEITI V3.0 PRO</div>
+        </div>
+        <nav class="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+            <button onclick="nav('dashboard')" class="w-full text-left px-4 py-3 theme-sidebar-hover rounded-lg flex items-center gap-3 transition-colors text-sm font-medium"><i class="fas fa-chart-pie w-5 text-center"></i> Dashboard</button>
+            <button onclick="nav('tasks')" class="w-full text-left px-4 py-3 theme-sidebar-hover rounded-lg flex items-center gap-3 transition-colors text-sm font-medium"><i class="fas fa-tasks w-5 text-center"></i> Tarefas & Relatório</button>
+            <button onclick="nav('inventory')" class="w-full text-left px-4 py-3 theme-sidebar-hover rounded-lg flex items-center gap-3 transition-colors text-sm font-medium"><i class="fas fa-laptop w-5 text-center"></i> Inventário</button>
+            <button onclick="nav('maintenance')" class="w-full text-left px-4 py-3 theme-sidebar-hover rounded-lg flex items-center gap-3 transition-colors text-sm font-medium"><i class="fas fa-tools w-5 text-center"></i> Manutenção</button>
+            <button onclick="nav('antivirus')" class="w-full text-left px-4 py-3 theme-sidebar-hover rounded-lg flex items-center gap-3 transition-colors text-sm font-medium"><i class="fas fa-shield-virus w-5 text-center"></i> Antivírus</button>
+            
+            <div id="adminMenuLink" class="hidden mt-6 pt-4 border-t border-white/10">
+                <button onclick="nav('admin')" class="w-full text-left px-4 py-3 hover:bg-white/10 rounded-lg flex items-center gap-3 transition-colors text-sm font-bold text-orange-300"><i class="fas fa-user-shield w-5 text-center"></i> Administração</button>
+            </div>
+        </nav>
+        <div class="p-4 border-t border-white/10 bg-black/20">
+            <div class="flex items-center gap-3 mb-3">
+                <div class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold" id="userInitials">UN</div>
+                <div class="overflow-hidden">
+                    <p class="text-xs font-bold truncate" id="userNameDisplay">Utilizador</p>
+                    <p class="text-[10px] text-slate-400 truncate" id="userRoleDisplay">Técnico</p>
+                </div>
+            </div>
+            <button onclick="handleLogout()" class="w-full bg-red-600/20 hover:bg-red-600 text-red-100 text-xs py-2 rounded border border-red-600/30 transition-all">Terminar Sessão</button>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col overflow-hidden relative bg-slate-100">
+        <header class="h-16 bg-white flex items-center justify-between px-8 shadow-sm z-10 border-b border-slate-200">
+            <div><h2 id="pageTitle" class="text-xl font-bold theme-text">Dashboard</h2></div>
+            <div class="flex items-center gap-4">
+                <span class="text-xs font-mono text-slate-400 bg-slate-50 px-2 py-1 rounded" id="currentDate"></span>
+                <button onclick="openModal('modalAsset')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md flex items-center gap-2 transition-all"><i class="fas fa-plus"></i> <span class="hidden md:inline">Novo Equipamento</span></button>
+            </div>
+        </header>
+
+        <div class="flex-1 overflow-y-auto p-6 custom-scroll" id="mainContainer">
+            <div id="systemAlerts" class="mb-6 hidden"></div>
+
+            <div id="view-tasks" class="space-y-6 fade-in hidden">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                        <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2"><i class="fas fa-edit text-blue-600"></i> Registar Atividade</h3>
+                        <form onsubmit="addManualTask(event)" class="space-y-4">
+                            <div><label class="text-xs font-bold text-slate-500 uppercase">Descrição</label><textarea name="desc" class="w-full border p-2 rounded text-sm h-24 resize-none focus:ring-1 ring-blue-500 outline-none" placeholder="O que foi feito?" required></textarea></div>
+                            <div><label class="text-xs font-bold text-slate-500 uppercase">Local</label><select name="local" id="taskLocalSelect" class="w-full border p-2 rounded text-sm bg-white" required></select></div>
+                            <div class="flex items-center gap-2">
+                                <label class="text-xs font-bold text-slate-500 uppercase">Estado:</label>
+                                <select name="status" class="border p-1 rounded text-sm bg-white"><option value="Concluída">✅ Concluída</option><option value="Em Curso">⏳ Em Curso</option></select>
+                            </div>
+                            <button class="w-full bg-slate-800 text-white py-2 rounded font-bold hover:bg-slate-900 transition">Registar</button>
+                        </form>
+                    </div>
+
+                    <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-[500px]">
+                        <div class="p-4 border-b bg-slate-50 flex justify-between items-center">
+                            <h3 class="font-bold text-slate-700"><i class="fas fa-list-ul"></i> Diário de Hoje</h3>
+                            <button onclick="generateProfessionalReport()" class="bg-red-600 text-white px-3 py-1 rounded text-xs font-bold hover:bg-red-700 shadow flex items-center gap-2"><i class="fas fa-file-pdf"></i> Gerar Relatório Oficial</button>
+                        </div>
+                        <div class="flex-1 overflow-y-auto p-0 custom-scroll">
+                            <table class="w-full text-sm text-left">
+                                <thead class="bg-slate-50 text-xs uppercase text-slate-500 sticky top-0"><tr><th class="p-3">Hora</th><th class="p-3">Atividade</th><th class="p-3">Local</th><th class="p-3">Estado</th></tr></thead>
+                                <tbody id="dailyLogTable" class="divide-y divide-slate-100 text-slate-600"></tbody>
+                            </table>
+                            <div id="emptyLogMsg" class="p-8 text-center text-slate-400 hidden"><i class="fas fa-clipboard text-4xl mb-2"></i><p>Sem registos hoje.</p></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-admin" class="hidden space-y-6 fade-in">
+                <div class="bg-white p-6 rounded-xl shadow-sm border-l-4 border-blue-600">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4 pb-2 border-b"><i class="fas fa-paint-brush text-blue-600"></i> Personalização & Identidade</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Cor da Barra Lateral</label>
+                            <div class="flex gap-2 items-center">
+                                <input type="color" id="colorSidebar" class="h-10 w-16 rounded cursor-pointer border shadow-sm">
+                                <span class="text-xs text-slate-400">Escolha a cor oficial</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Logótipo Institucional</label>
+                            <input type="file" id="logoUpload" accept="image/*" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
+                            <p class="text-[10px] text-slate-400 mt-1">Recomendado: PNG Transparente</p>
+                        </div>
+                    </div>
+                    <button onclick="saveVisualSettings()" class="mt-4 bg-blue-600 text-white px-6 py-2 rounded text-sm font-bold shadow hover:bg-blue-700">Guardar Alterações Visuais</button>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-sm border-l-4 border-orange-500">
+                    <div class="flex justify-between items-center mb-6 pb-2 border-b">
+                        <h3 class="text-lg font-bold text-slate-800"><i class="fas fa-users-cog text-orange-500"></i> Gestão de Utilizadores</h3>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="bg-slate-50 p-4 rounded-lg border">
+                            <h4 class="font-bold text-sm text-slate-700 mb-3">Conceder Acesso</h4>
+                            <p class="text-xs text-slate-500 mb-3">O utilizador deve criar a conta (Sign Up) primeiro no ecrã de login ou ser registado pelo Admin.</p>
+                            <form onsubmit="addUserPermission(event)" class="space-y-3">
+                                <input name="uEmail" type="email" placeholder="Email do Utilizador" class="w-full border p-2 rounded text-sm" required>
+                                <input name="uName" type="text" placeholder="Nome Completo" class="w-full border p-2 rounded text-sm" required>
+                                <select name="uRole" class="w-full border p-2 rounded text-sm bg-white">
+                                    <option value="tech">Técnico (Acesso Padrão)</option>
+                                    <option value="admin">Administrador (Total)</option>
+                                </select>
+                                <button class="w-full bg-orange-600 text-white py-2 rounded text-sm font-bold hover:bg-orange-700">Adicionar/Atualizar</button>
+                            </form>
+                        </div>
+
+                        <div class="md:col-span-2">
+                            <div class="overflow-hidden rounded-lg border border-slate-200">
+                                <table class="w-full text-sm text-left bg-white">
+                                    <thead class="bg-slate-100 text-xs uppercase font-bold text-slate-500">
+                                        <tr><th class="p-3">Nome</th><th class="p-3">Email</th><th class="p-3">Permissão</th><th class="p-3 text-right">Ação</th></tr>
+                                    </thead>
+                                    <tbody id="usersTableBody" class="divide-y divide-slate-100"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-dashboard" class="hidden space-y-6 fade-in">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6" id="kpiContainer"></div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="glass-panel p-6 rounded-xl shadow-sm"><h4 class="font-bold text-slate-700 mb-4">Equipamentos</h4><div class="h-64"><canvas id="chartTypes"></canvas></div></div>
+                    <div class="glass-panel p-6 rounded-xl shadow-sm"><h4 class="font-bold text-slate-700 mb-4">Licenças Antivírus</h4><div class="h-64"><canvas id="chartLicenses"></canvas></div></div>
+                </div>
+            </div>
+
+            <div id="view-inventory" class="hidden space-y-6 fade-in">
+                <div class="flex justify-between mb-4"><input id="searchInv" oninput="renderInventory()" placeholder="Pesquisar..." class="border rounded p-2 text-sm w-64 bg-white"><button onclick="exportInventoryPDF()" class="bg-slate-800 text-white px-3 py-2 rounded text-sm"><i class="fas fa-print"></i> Lista PDF</button></div>
+                <div class="bg-white rounded-xl shadow-sm border overflow-hidden"><table class="w-full text-sm text-left"><thead class="bg-slate-50 text-xs uppercase font-bold text-slate-500"><tr><th class="p-4">Equipamento</th><th class="p-4">Local</th><th class="p-4">Info</th><th class="p-4">Ações</th></tr></thead><tbody id="inventoryTable" class="divide-y divide-slate-100"></tbody></table></div>
+            </div>
+            
+            <div id="view-maintenance" class="hidden space-y-6 fade-in">
+                <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+                    <div class="p-4 border-b flex justify-between items-center"><h3 class="font-bold">Histórico</h3><input id="searchMaint" oninput="renderMaintenanceLog()" placeholder="Pesquisar..." class="border rounded p-2 text-sm"></div>
+                    <table class="w-full text-sm text-left"><thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr><th class="p-3">Data</th><th class="p-3">Equipamento</th><th class="p-3">Detalhe</th><th class="p-3 text-right">Ficha</th></tr></thead><tbody id="maintenanceTable" class="divide-y divide-slate-100"></tbody></table>
+                </div>
+            </div>
+
+             <div id="view-antivirus" class="hidden space-y-6 fade-in">
+                <div class="flex gap-2 mb-4"><button onclick="openModal('modalLicense')" class="bg-blue-600 text-white px-4 py-2 rounded shadow text-sm font-bold">Registar Licença</button></div>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6" id="licenseCards"></div>
+                <div class="bg-white rounded-xl shadow p-6 mt-6"><table class="w-full text-sm text-left"><thead class="bg-slate-50 text-xs uppercase"><tr><th class="p-3">PC</th><th class="p-3">Local</th><th class="p-3">Estado</th></tr></thead><tbody id="avMapTable" class="divide-y divide-slate-100"></tbody></table></div>
+            </div>
+        </div>
+    </main>
+
+    <div id="modalAsset" class="fixed inset-0 bg-black/60 hidden z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div class="p-5 border-b flex justify-between bg-slate-50 rounded-t-xl"><h3 class="font-bold text-lg text-slate-800">Novo Equipamento</h3><button onclick="closeModal('modalAsset')" class="text-2xl text-slate-400 hover:text-red-500">&times;</button></div>
+            <form onsubmit="saveAsset(event)" class="p-6 space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div><label class="text-xs font-bold uppercase text-slate-500">Tipo</label><select name="type" id="assetType" class="w-full border p-2 rounded" onchange="toggleSpecs()"><option value="Computador">Computador</option><option value="Impressora">Impressora</option><option value="UPS">UPS</option><option value="Outro">Outro</option></select></div>
+                    <div><label class="text-xs font-bold uppercase text-slate-500">Marca/Modelo</label><input name="model" class="w-full border p-2 rounded" required></div>
+                    <div><label class="text-xs font-bold uppercase text-slate-500">Nº Série</label><input name="serial" class="w-full border p-2 rounded" required></div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-blue-50 p-4 rounded border">
+                    <div><label class="text-xs font-bold text-blue-800 uppercase">Piso</label><select name="floor" id="floorSelect" class="w-full border p-2 rounded"></select></div>
+                    <div><label class="text-xs font-bold text-blue-800 uppercase">Departamento</label><select name="dept" id="deptSelect" class="w-full border p-2 rounded"></select></div>
+                    <div><label class="text-xs font-bold text-blue-800 uppercase">Área/User</label><input name="area" class="w-full border p-2 rounded" placeholder="Ex: Enfermaria 2"></div>
+                </div>
+                <div id="specsContainer" class="border-t pt-4"></div>
+                <div class="flex justify-end pt-4 border-t"><button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded font-bold shadow hover:bg-blue-700">Guardar</button></div>
+            </form>
+        </div>
+    </div>
+    
+    <div id="interventionModal" class="fixed inset-0 bg-black/60 hidden z-50 flex items-center justify-center backdrop-blur-sm"><div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col"><div class="p-4 border-b flex justify-between bg-slate-50 rounded-t-xl"><h3 class="font-bold">Intervenção</h3><button onclick="closeModal('interventionModal')" class="text-xl">&times;</button></div><div class="p-6 overflow-y-auto" id="intDynamicContent"></div><div class="p-4 border-t flex justify-between items-center"><div class="flex items-center gap-2"><label class="text-sm font-bold">Estado:</label><select id="finalStatus" class="border rounded p-1 text-sm"><option value="Operacional">✅ Operacional</option><option value="Inoperacional">🚫 Inoperacional</option></select></div><button onclick="saveAndPrintIntervention()" class="bg-blue-600 text-white px-4 py-2 rounded font-bold shadow">Guardar</button></div></div></div>
+    <div id="modalLicense" class="fixed inset-0 bg-black/60 hidden z-50 flex items-center justify-center backdrop-blur-sm"><div class="bg-white rounded-xl w-96 p-6"><h3 class="font-bold text-lg mb-4">Registar Licença</h3><form onsubmit="saveLicense(event)" class="space-y-4"><input name="name" class="w-full border p-2 rounded" placeholder="Software" required><input name="key" class="w-full border p-2 rounded" placeholder="Chave"><div class="flex gap-2"><input type="number" name="seats" class="w-full border p-2 rounded" placeholder="Qtd"><input type="date" name="expire" class="w-full border p-2 rounded"></div><button class="w-full bg-blue-600 text-white py-2 rounded font-bold">Salvar</button></form><button onclick="closeModal('modalLicense')" class="mt-2 w-full text-slate-500 text-sm">Cancelar</button></div></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, doc, setDoc, updateDoc, deleteDoc, query, orderBy, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // -----------------------------------------------------------------------------------------
+        // 🔴 CHAVE CONFIGURADA AUTOMATICAMENTE (NÃO MEXER) 🔴
+        const firebaseConfig = {
+          apiKey: "AIzaSyCPhwJbAjnJbcG6fs15gRtV77u0DW_ylhs",
+          authDomain: "deiti-572f6.firebaseapp.com",
+          projectId: "deiti-572f6",
+          storageBucket: "deiti-572f6.firebasestorage.app",
+          messagingSenderId: "1029415028349",
+          appId: "1:1029415028349:web:59fbedd86350f2764dd314"
+        };
+        // -----------------------------------------------------------------------------------------
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // --- ESTADO GLOBAL ---
+        let DB = { 
+            assets: [], licenses: [], logs: [], technicians: [], departments: [], users: [],
+            config: { sidebarColor: "#001233", logo: null }
+        };
+        let currentUser = null;
+        let currentUserRole = 'tech'; // 'admin' ou 'tech'
+        
+        const FLOORS = ['Rés-do-Chão', 'Piso 1', 'Piso 2', 'Piso 3', 'Piso 4', 'Piso 5', 'Piso 6', 'Piso 7'];
+        let currentInterventionItem = null;
+        let chartInstanceTypes = null; 
+        let chartInstanceLicenses = null;
+
+        // --- AUTHENTICATION & LOAD ---
+        onAuthStateChanged(auth, async (user) => {
+            const loginScreen = document.getElementById('loginScreen');
+            const loading = document.getElementById('loadingOverlay');
+            
+            if (user) {
+                currentUser = user;
+                loginScreen.style.display = 'none';
+                await checkUserRole(user.email);
+                await loadAllData();
+                loading.style.display = 'none';
+            } else {
+                currentUser = null;
+                loginScreen.style.display = 'flex';
+                loading.style.display = 'none';
+            }
+        });
+
+        async function checkUserRole(email) {
+            try {
+                const userDoc = await getDoc(doc(db, "user_roles", email));
+                if (userDoc.exists()) {
+                    const data = userDoc.data();
+                    currentUserRole = data.role;
+                    document.getElementById('userNameDisplay').textContent = data.name || email.split('@')[0];
+                    document.getElementById('userInitials').textContent = (data.name || "U").substring(0,2).toUpperCase();
+                } else {
+                    currentUserRole = 'tech'; // Default
+                    document.getElementById('userNameDisplay').textContent = email;
+                }
+                document.getElementById('userRoleDisplay').textContent = currentUserRole === 'admin' ? "Administrador" : "Técnico";
+                
+                const adminLink = document.getElementById('adminMenuLink');
+                if(currentUserRole === 'admin') adminLink.classList.remove('hidden');
+                else adminLink.classList.add('hidden');
+                
+            } catch (e) { console.error("Erro auth:", e); }
+        }
+
+        window.handleLogin = (e) => {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const pass = document.getElementById('loginPass').value;
+            const btn = document.getElementById('btnLogin');
+            const err = document.getElementById('loginError');
+
+            btn.textContent = "A verificar...";
+            btn.disabled = true;
+            err.classList.add('hidden');
+
+            signInWithEmailAndPassword(auth, email, pass)
+                .then(() => { btn.textContent = "Sucesso!"; })
+                .catch((error) => {
+                    btn.textContent = "ACEDER AO SISTEMA";
+                    btn.disabled = false;
+                    err.classList.remove('hidden');
+                });
+        };
+
+        window.handleLogout = () => { if(confirm("Deseja terminar a sessão?")) signOut(auth).then(()=>window.location.reload()); };
+
+        // --- CARREGAMENTO DE DADOS ---
+        async function loadAllData() {
+            try {
+                const configSnap = await getDoc(doc(db, "config_geral", "visual"));
+                if(configSnap.exists()) {
+                    DB.config = configSnap.data();
+                    applyVisualSettings();
+                }
+
+                const listsSnap = await getDocs(collection(db, "config_lists"));
+                DB.departments = ["TI", "Recursos Humanos", "Direcção"]; 
+                listsSnap.forEach(d => {
+                    if(d.id === 'departments') DB.departments = d.data().list;
+                    if(d.id === 'technicians') DB.technicians = d.data().list;
+                });
+
+                const [assetsS, logsS, licS, usersS] = await Promise.all([
+                    getDocs(collection(db, "assets")),
+                    getDocs(query(collection(db, "logs"), orderBy("id", "desc"))),
+                    getDocs(collection(db, "licenses")),
+                    getDocs(collection(db, "user_roles"))
+                ]);
+
+                DB.assets = []; assetsS.forEach(d => DB.assets.push({ ...d.data(), firestoreId: d.id }));
+                DB.logs = []; logsS.forEach(d => DB.logs.push({ ...d.data(), firestoreId: d.id }));
+                DB.licenses = []; licS.forEach(d => DB.licenses.push({ ...d.data(), firestoreId: d.id }));
+                DB.users = []; usersS.forEach(d => DB.users.push({ ...d.data(), email: d.id }));
+
+                document.getElementById('currentDate').textContent = new Date().toLocaleDateString('pt-PT');
+                refreshSelects();
+                updateStats();
+                renderCharts();
+                renderDailyLog();
+                if(currentUserRole === 'admin') renderUsersList();
+                
+                nav('dashboard');
+            } catch (e) { console.error(e); }
+        }
+
+        // --- GESTÃO DE UTILIZADORES (ADMIN) ---
+        window.addUserPermission = async (e) => {
+            e.preventDefault();
+            if(currentUserRole !== 'admin') return alert("Apenas administradores.");
+            
+            const email = e.target.uEmail.value.toLowerCase().trim();
+            const name = e.target.uName.value;
+            const role = e.target.uRole.value;
+
+            try {
+                await setDoc(doc(db, "user_roles", email), { role, name, updatedAt: new Date() });
+                const idx = DB.users.findIndex(u => u.email === email);
+                if(idx >= 0) DB.users[idx] = { email, role, name };
+                else DB.users.push({ email, role, name });
+                renderUsersList();
+                e.target.reset();
+                alert(`✅ Permissão atualizada para ${email}.`);
+            } catch(err) { alert("Erro: " + err.message); }
+        };
+
+        function renderUsersList() {
+            const tbody = document.getElementById('usersTableBody');
+            tbody.innerHTML = DB.users.map(u => `
+                <tr class="hover:bg-slate-50 border-b last:border-0">
+                    <td class="p-3 font-medium text-slate-700">${u.name || '-'}</td>
+                    <td class="p-3 text-slate-500">${u.email}</td>
+                    <td class="p-3"><span class="px-2 py-1 rounded text-xs font-bold ${u.role==='admin'?'bg-purple-100 text-purple-700':'bg-blue-100 text-blue-700'}">${u.role.toUpperCase()}</span></td>
+                    <td class="p-3 text-right"><button onclick="deleteUserRole('${u.email}')" class="text-red-500 hover:text-red-700"><i class="fas fa-trash"></i></button></td>
+                </tr>
+            `).join('');
+        }
+        window.deleteUserRole = async (email) => {
+            if(confirm(`Remover permissões de ${email}?`)) {
+                await deleteDoc(doc(db, "user_roles", email));
+                DB.users = DB.users.filter(u => u.email !== email);
+                renderUsersList();
+            }
+        };
+
+        // --- PERSONALIZAÇÃO VISUAL ---
+        window.saveVisualSettings = async () => {
+            const color = document.getElementById('colorSidebar').value;
+            const fileInput = document.getElementById('logoUpload');
+            let logoBase64 = DB.config.logo; 
+
+            if (fileInput.files && fileInput.files[0]) {
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    logoBase64 = e.target.result;
+                    saveConfigToFirestore(color, logoBase64);
+                };
+                reader.readAsDataURL(fileInput.files[0]);
+            } else {
+                saveConfigToFirestore(color, logoBase64);
+            }
+        };
+
+        async function saveConfigToFirestore(color, logo) {
+            try {
+                await setDoc(doc(db, "config_geral", "visual"), { sidebarColor: color, logo: logo });
+                DB.config = { sidebarColor: color, logo: logo };
+                applyVisualSettings();
+                alert("🎨 Visual atualizado com sucesso!");
+            } catch (e) { alert("Erro ao salvar visual: " + e.message); }
+        }
+
+        function applyVisualSettings() {
+            if(DB.config.sidebarColor) {
+                document.documentElement.style.setProperty('--sidebar-bg', DB.config.sidebarColor);
+            }
+            if(DB.config.logo) {
+                document.getElementById('appLogo').src = DB.config.logo;
+                document.getElementById('loginLogo').src = DB.config.logo;
+            }
+        }
+
+        // --- TAREFAS & RELATÓRIO PROFISSIONAL (PDF) ---
+        window.addManualTask = async (e) => { 
+            e.preventDefault(); const f = e.target;
+            const log = { 
+                id: Date.now(), 
+                date: new Date().toLocaleDateString('pt-PT'), 
+                time: new Date().toLocaleTimeString('pt-PT', {hour: '2-digit', minute:'2-digit'}), 
+                description: f.desc.value, 
+                local: f.local.value,
+                status: f.status.value, 
+                type: 'Atividade',
+                tech: currentUser.email
+            };
+            try {
+                const ref = await addDoc(collection(db, "logs"), log);
+                log.firestoreId = ref.id;
+                DB.logs.unshift(log);
+                f.reset(); renderDailyLog(); updateStats();
+            } catch(e) { console.error(e); }
+        };
+
+        function renderDailyLog() {
+            const tbody = document.getElementById('dailyLogTable');
+            const today = new Date().toLocaleDateString('pt-PT');
+            const logsToday = DB.logs.filter(l => l.date === today);
+            
+            if(logsToday.length === 0) {
+                document.getElementById('emptyLogMsg').classList.remove('hidden');
+                tbody.innerHTML = '';
+            } else {
+                document.getElementById('emptyLogMsg').classList.add('hidden');
+                tbody.innerHTML = logsToday.map(l => `
+                    <tr class="border-b hover:bg-slate-50">
+                        <td class="p-3 text-xs font-mono">${l.time}</td>
+                        <td class="p-3 font-medium">${l.description}</td>
+                        <td class="p-3 text-xs text-slate-500">${l.local}</td>
+                        <td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${l.status==='Concluída' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">${l.status}</span></td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        window.generateProfessionalReport = () => {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const today = new Date().toLocaleDateString('pt-PT');
+            
+            const logsToday = DB.logs.filter(l => l.date === today);
+            const concluded = logsToday.filter(l => l.status === 'Concluída');
+            const pending = logsToday.filter(l => l.status === 'Em Curso');
+            const total = logsToday.length || 1;
+
+            // --- CABEÇALHO ---
+            if(DB.config.logo) { try { doc.addImage(DB.config.logo, 'PNG', 15, 10, 20, 20); } catch(e){} }
+            
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(16);
+            doc.text("MATERNIDADE LUCRÉCIA PAIM", 105, 18, { align: 'center' });
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            doc.text("Departamento de Equipamentos, Instalações e Tecnologias de Informação", 105, 24, { align: 'center' });
+            
+            doc.setDrawColor(200);
+            doc.line(15, 30, 195, 30); 
+
+            // --- TÍTULO E INTRODUÇÃO ---
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "bold");
+            doc.text("RELATÓRIO DIÁRIO DE ATIVIDADES", 15, 40);
+            
+            doc.setFontSize(10);
+            doc.text(`Data: ${today}`, 15, 48);
+            doc.text(`Secção: Tecnologia`, 15, 53);
+            doc.text(`Técnico Responsável: ${document.getElementById('userNameDisplay').textContent}`, 15, 58);
+
+            doc.setFont("helvetica", "normal");
+            const introText = `No dia de hoje, a Secção de Tecnologia deu seguimento às tarefas planeadas, conforme o plano apresentado no documento de tarefas. De forma geral, os trabalhos decorreram dentro da normalidade, com a execução das atividades abaixo listadas.`;
+            const splitIntro = doc.splitTextToSize(introText, 180);
+            doc.text(splitIntro, 15, 68);
+
+            let currentY = 80;
+
+            // --- GRÁFICO VISUAL (BARRA DE PROGRESSO) ---
+            const pct = Math.round((concluded.length / total) * 100);
+            doc.setFont("helvetica", "bold");
+            doc.text(`Progresso do Dia: ${pct}% Concluído`, 15, currentY);
+            doc.setFillColor(230, 230, 230);
+            doc.rect(15, currentY + 2, 180, 5, 'F');
+            doc.setFillColor(0, 119, 182); 
+            doc.rect(15, currentY + 2, (180 * (pct/100)), 5, 'F');
+            
+            currentY += 15;
+
+            // --- TAREFAS CONCLUÍDAS ---
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(0, 100, 0); 
+            doc.text(`TAREFAS CONCLUÍDAS (${concluded.length})`, 15, currentY);
+            doc.setTextColor(0); 
+
+            if (concluded.length > 0) {
+                const rowsConcluded = concluded.map(l => [l.time, l.description, l.local]);
+                doc.autoTable({
+                    startY: currentY + 2,
+                    head: [['Hora', 'Atividade', 'Local']],
+                    body: rowsConcluded,
+                    theme: 'grid',
+                    headStyles: { fillColor: [22, 163, 74] }, 
+                    styles: { fontSize: 9 }
+                });
+                currentY = doc.lastAutoTable.finalY + 10;
+                
+                const txtConcluidas = "Estas tarefas foram executadas nos horários definidos, garantindo a operacionalidade dos sistemas e o apoio necessário aos diferentes setores.";
+                doc.setFont("helvetica", "italic");
+                doc.setFontSize(9);
+                doc.text(doc.splitTextToSize(txtConcluidas, 180), 15, currentY);
+                currentY += 10;
+            } else {
+                currentY += 5;
+                doc.setFont("helvetica", "italic");
+                doc.text("Nenhuma tarefa marcada como concluída hoje.", 15, currentY);
+                currentY += 10;
+            }
+
+            currentY += 5;
+
+            // --- TAREFAS EM CURSO ---
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(10);
+            doc.setTextColor(180, 83, 9);
+            doc.text(`TAREFAS EM CURSO / PENDENTES (${pending.length})`, 15, currentY);
+            doc.setTextColor(0);
+
+            if (pending.length > 0) {
+                const rowsPending = pending.map(l => [l.time, l.description, l.local]);
+                doc.autoTable({
+                    startY: currentY + 2,
+                    head: [['Hora', 'Atividade', 'Local']],
+                    body: rowsPending,
+                    theme: 'grid',
+                    headStyles: { fillColor: [234, 179, 8] }, 
+                    styles: { fontSize: 9 }
+                });
+                currentY = doc.lastAutoTable.finalY + 10;
+                
+                const txtPendentes = "Estas atividades não ficaram concluídas hoje e serão finalizadas amanhã ou conforme disponibilidade técnica, sem impacto significativo no funcionamento dos serviços.";
+                doc.setFont("helvetica", "italic");
+                doc.setFontSize(9);
+                doc.text(doc.splitTextToSize(txtPendentes, 180), 15, currentY);
+                currentY += 10;
+            } else {
+                currentY += 5;
+                doc.setFont("helvetica", "italic");
+                doc.text("Não existem pendências registadas.", 15, currentY);
+                currentY += 10;
+            }
+
+            // --- CONCLUSÃO ---
+            if (currentY > 250) { doc.addPage(); currentY = 20; }
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(10);
+            doc.text("CONCLUSÃO", 15, currentY + 10);
+            
+            doc.setFont("helvetica", "normal");
+            const conclusaoText = `O balanço do dia é ${pct > 80 ? 'muito positivo' : 'estável'}, com a maioria das tarefas concluídas conforme planeado. As atividades pendentes já se encontram identificadas e serão priorizadas no próximo dia útil, assegurando a continuidade e eficiência dos serviços tecnológicos.`;
+            doc.text(doc.splitTextToSize(conclusaoText, 180), 15, currentY + 16);
+
+            const pageCount = doc.internal.getNumberOfPages();
+            for(let i = 1; i <= pageCount; i++) {
+                doc.setPage(i);
+                doc.setFontSize(8);
+                doc.text(`Pág ${i} de ${pageCount} - Gerado por SGI DEITI`, 195, 290, {align:'right'});
+            }
+
+            doc.save(`Relatorio_Tecnico_${today.replace(/\//g,'-')}.pdf`);
+        };
+
+        // Outras funções
+        window.saveAsset = async (e) => {
+            e.preventDefault(); const f = e.target;
+            const getVal = (name) => f[name] ? f[name].value : ""; 
+            const specs = { cpu: getVal('spec_cpu'), ram: getVal('spec_ram'), disk: getVal('spec_disk'), counter: getVal('spec_counter'), ip: getVal('spec_ip'), capacity: getVal('spec_cap'), load: getVal('spec_load') };
+            const asset = { id: Date.now(), type: f.type.value, brand: f.model.value.split(' ')[0], model: f.model.value, serial: f.serial.value, floor: f.floor.value, dept: f.dept.value, area: f.area.value, specs, status: 'Operacional', antivirus: null };
+            try {
+                const docRef = await addDoc(collection(db, "assets"), asset);
+                asset.firestoreId = docRef.id; 
+                DB.assets.push(asset);
+                closeModal('modalAsset'); renderInventory(); updateStats(); renderCharts();
+                alert("✅ Equipamento salvo!");
+            } catch (err) { alert("Erro: " + err.message); }
+        };
+
+        window.nav = (viewId) => {
+            document.querySelectorAll('[id^="view-"]').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`view-${viewId}`).classList.remove('hidden');
+            document.getElementById('pageTitle').textContent = viewId === 'admin' ? 'Painel Administrativo' : 'Painel Geral';
+            if(viewId==='inventory') renderInventory();
+            if(viewId==='maintenance') renderMaintenanceLog();
+            if(viewId==='antivirus') renderAntivirus();
+            if(viewId==='dashboard') renderCharts();
+        };
+
+        window.refreshSelects = () => {
+            ['deptSelect', 'filterDept', 'taskLocalSelect'].forEach(id => { 
+                const el = document.getElementById(id); 
+                if(el) el.innerHTML = (id === 'filterDept' ? `<option value="All">Todos</option>` : '') + DB.departments.map(d=>`<option value="${d}">${d}</option>`).join(''); 
+            });
+            ['floorSelect', 'filterFloor'].forEach(id => { const el = document.getElementById(id); if(el) el.innerHTML = (id === 'filterFloor' ? `<option value="All">Todos</option>` : '') + FLOORS.map(f=>`<option value="${f}">${f}</option>`).join(''); });
+        };
+        
+        window.renderInventory = () => {
+            const tbody = document.getElementById('inventoryTable'); tbody.innerHTML = '';
+            const search = document.getElementById('searchInv').value.toLowerCase();
+            DB.assets.filter(a => (a.model.toLowerCase().includes(search)||a.serial.toLowerCase().includes(search)))
+            .forEach(a => {
+                let specStr = a.type==='Computador' ? `${a.specs.cpu}/${a.specs.ram}` : '-';
+                tbody.innerHTML += `<tr class="hover:bg-slate-50 border-b"><td class="p-4 font-bold">${a.model}<br><span class="text-xs text-slate-500">${a.serial}</span></td><td class="p-4 text-sm">${a.dept}<br><span class="text-xs text-slate-400">${a.floor}</span></td><td class="p-4 text-xs">${specStr}</td><td class="p-4"><button onclick="prepIntervention(${a.id})" class="text-blue-600 font-bold hover:underline">Manutenção</button></td></tr>`;
+            });
+        };
+
+        window.updateStats = () => {
+             const kpi = document.getElementById('kpiContainer');
+             if(kpi) kpi.innerHTML = `
+                <div class="glass-panel p-6 rounded-xl border-l-4 border-blue-600 bg-white"><div><p class="text-xs font-bold text-slate-500 uppercase">Total Ativos</p><h3 class="text-3xl font-bold text-slate-800">${DB.assets.length}</h3></div></div>
+                <div class="glass-panel p-6 rounded-xl border-l-4 border-green-500 bg-white"><div><p class="text-xs font-bold text-slate-500 uppercase">Protegidos</p><h3 class="text-3xl font-bold text-green-600">${DB.assets.filter(a=>a.antivirus).length}</h3></div></div>
+                <div class="glass-panel p-6 rounded-xl border-l-4 border-red-500 bg-white"><div><p class="text-xs font-bold text-slate-500 uppercase">Avariados</p><h3 class="text-3xl font-bold text-red-600">${DB.assets.filter(a=>a.status!=='Operacional').length}</h3></div></div>
+                <div class="glass-panel p-6 rounded-xl border-l-4 border-purple-500 bg-white"><div><p class="text-xs font-bold text-slate-500 uppercase">Tarefas Hoje</p><h3 class="text-3xl font-bold text-purple-600">${DB.logs.filter(l=>l.date === new Date().toLocaleDateString('pt-PT')).length}</h3></div></div>
+            `;
+        };
+
+        window.renderCharts = () => {
+            const ctx1 = document.getElementById('chartTypes'); const ctx2 = document.getElementById('chartLicenses');
+            if(ctx1 && ctx2) {
+                if(chartInstanceTypes) chartInstanceTypes.destroy();
+                if(chartInstanceLicenses) chartInstanceLicenses.destroy();
+                const types = {}; DB.assets.forEach(a => types[a.type] = (types[a.type] || 0) + 1);
+                chartInstanceTypes = new Chart(ctx1, {type:'doughnut', data:{labels:Object.keys(types), datasets:[{data:Object.values(types), backgroundColor:['#0077b6','#10b981','#f59e0b','#6366f1']}]}, options:{maintainAspectRatio:false, plugins:{legend:{position:'right'}}}});
+                const prot = DB.assets.filter(a => a.antivirus).length; const vuln = DB.assets.filter(a => a.type==='Computador' && !a.antivirus).length;
+                chartInstanceLicenses = new Chart(ctx2, {type:'pie', data:{labels:['Protegidos','Vulneráveis'], datasets:[{data:[prot, vuln], backgroundColor:['#10b981','#ef4444']}]}, options:{maintainAspectRatio:false, plugins:{legend:{position:'right'}}}});
+            }
+        };
+
+        window.toggleSpecs = () => { const t = document.getElementById('assetType').value; const c = document.getElementById('specsContainer'); if(t==='Computador') c.innerHTML = '<div class="grid grid-cols-3 gap-2"><input name="spec_cpu" placeholder="CPU" class="border p-2 rounded text-sm"><input name="spec_ram" placeholder="RAM" class="border p-2 rounded text-sm"><input name="spec_disk" placeholder="Disco" class="border p-2 rounded text-sm"></div>'; else c.innerHTML=''; };
+        window.openModal = (id) => document.getElementById(id).classList.remove('hidden');
+        window.closeModal = (id) => document.getElementById(id).classList.add('hidden');
+        window.prepIntervention = (id) => { currentInterventionItem = DB.assets.find(a => a.id === id); openModal('interventionModal'); document.getElementById('intDynamicContent').innerHTML = `<p class="font-bold">${currentInterventionItem.model}</p><textarea id="intReport" class="w-full border p-2 mt-2 h-24" placeholder="Relatório..."></textarea>`; };
+        window.saveAndPrintIntervention = async () => { const r = document.getElementById('intReport').value; const s = document.getElementById('finalStatus').value; await addDoc(collection(db, "logs"), {id:Date.now(), date:new Date().toLocaleDateString('pt-PT'), assetName:currentInterventionItem.model, report:r, status:s, type:'Manutenção'}); alert("Guardado!"); closeModal('interventionModal'); };
+    </script>
+</body>
+</html>
